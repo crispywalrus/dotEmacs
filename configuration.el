@@ -159,6 +159,12 @@
         (t               . ivy-posframe-display))))
 
 ;; general programing IDE
+(use-package diminish)
+
+(use-package smartparens)
+
+(require 'smartparens-config)
+
 (use-package lsp-mode
   :config (setq lsp-enable-snippet nil)
   (setq gc-cons-threshold 100000000)
@@ -195,14 +201,17 @@
            'self-insert-command
            minibuffer-local-completion-map))
 
-(use-package company)
+(use-package company
+  :diminish company-mode)
 
 (use-package scala-mode
   :config
   (require 'scala-mode-prettify-symbols)
   (setq prettify-symbols-alist scala-prettify-symbols-alist)
-  :init
-  (add-hook 'scala-mode-hook 'company-mode)
+  :hook (scala-mode . company-mode)
+  (scala-mode . smartparens-mode)
+  (scala-mode . subword-mode)
+  :diminish smartparens-mode
   :bind
   ("C-c C-b" . sbt-hydra)
   :interpreter
@@ -223,6 +232,8 @@
   :after projectile
   :config
   (counsel-projectile-mode))
+
+(use-package edit-indirect)
 
 (use-package smithy-mode)
 
@@ -267,5 +278,11 @@
                              (?4 :foreground "gray20" :background "gray"))))
 
 (use-package org-kanban)
+
+(use-package jinx)
+
+(use-package sly)
+
+(use-package cider)
 
 ;;; configuration.el ends here
