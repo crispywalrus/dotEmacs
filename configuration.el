@@ -140,23 +140,23 @@
 ;; completion
 (use-package hydra)
 
-(use-package ivy
-  :config
-  (ivy-mode)
-  (setq ivy-use-selectable-prompt t
-        ivy-use-virtual-buffers t))
+(use-package vertico
+  :init (vertico-mode))
 
-;; (use-package counsel)
+(use-package vertico-posframe
+  :init (vertico-posframe-mode 1))
 
-(use-package ivy-posframe
-  :after posframe
-  :config
-  (ivy-posframe-mode 1)
-  (setq ivy-posframe-display-functions-alist
-      '((swiper          . ivy-display-function-fallback)
-        (complete-symbol . ivy-posframe-display-at-point)
-        (counsel-M-x     . ivy-posframe-display-at-window-bottom-left)
-        (t               . ivy-posframe-display))))
+(use-package consult)
+
+(use-package marginalia
+  :init
+  (marginalia-mode))
+
+(use-package all-the-icons-completion
+  :after (marginalia all-the-icons)
+  :hook (marginalia-mode . all-the-icons-completion-marginalia-setup)
+  :init
+  (all-the-icons-completion-mode))
 
 ;; general programing IDE
 (use-package diminish)
@@ -174,7 +174,7 @@
 
 (use-package lsp-ui)
 
-(use-package lsp-ivy)
+;; (use-package lsp-ivy)
 
 ;; for some reason this still needs to be added by hand
 (use-package lsp-metals
