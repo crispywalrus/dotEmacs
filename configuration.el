@@ -27,6 +27,15 @@
 
 ;; configure our GUI appearance. no scrollbar or toolbars and set the
 ;; font to Hack 12.
+
+(defgroup configuration nil
+  "Customization switches for configuration.el.")
+
+(defcustom native-project nil
+  "If non-nil use native project.el for project tracking"
+  :type 'string
+  :group 'configuration)
+
 (when (display-graphic-p)
   (setq initial-frame-alist nil
         default-frame-alist nil)
@@ -63,11 +72,24 @@
 (require 'use-package-ensure)
 (setq use-package-always-ensure t)
 
+;; magit is so important we load it first
+(use-package magit
+  :ensure t
+  :commands magit-status magit-blame
+  :init
+  (setq magit-auto-revert-mode nil
+        magit-last-seen-setup-instructions "1.4.0")
+  :bind (("s-g" . magit-status)
+         ("s-b" . magit-blame)))
+
+
 (use-package exec-path-from-shell
   :init (exec-path-from-shell-initialize))
 
 (setenv "JAVA_HOME" "/Users/cvale2/.sdkman/candidates/java/current")
 (setenv "PATH" (concat "/Users/cvale2/.sdkman/candidates/java/current/bin:" (getenv "PATH")))
+(setenv "GOPROXY" "direct")
+(setenv "GOSUMDB" "off")
 
 ;; for code we can't just use from a package manager we'll check it
 ;; into the vendor tree and manage it by hand.
@@ -146,7 +168,17 @@
 (use-package vertico-posframe
   :init (vertico-posframe-mode 1))
 
-(use-package consult)
+(use-package consult
+  :after vertico
+  :init
+  ;; Use `consult-completion-in-region' if Vertico is enabled.
+  ;; Otherwise use the default `completion--in-region' function.
+  (setq completion-in-region-function
+        (lambda (&rest args)
+          (apply (if vertico-mode
+                     #'consult-completion-in-region
+                   #'completion--in-region)
+                 args))))
 
 (use-package marginalia
   :init
@@ -170,21 +202,17 @@
   (setq gc-cons-threshold 100000000)
   (setq read-process-output-max (* 1024 1024))
   :hook (merlin-mode . lsp)
-        (lsp-mode . lsp-lens-mode))
+        (lsp-mode . lsp-lens-mode)
+        (scala-mode . lsp)
+        (go-mode . lsp)
+        (rust-mode . lsp))
 
 (use-package lsp-ui)
 
-;; (use-package lsp-ivy)
+(use-package consult-lsp)
 
 ;; for some reason this still needs to be added by hand
-(use-package lsp-metals
-  :ensure t
-  :custom
-  ;; Metals claims to support range formatting by default but it supports range
-  ;; formatting of multiline strings only. You might want to disable it so that
-  ;; emacs can use indentation provided by scala-mode.
-  (lsp-metals-server-args '("-J-Dmetals.allow-multiline-string-formatting=off"))
-  :hook (scala-mode . lsp))
+(use-package lsp-metals)
 
 ;; Posframe is a pop-up tool that must be manually installed for dap-mode
 (use-package posframe)
@@ -192,6 +220,24 @@
 (use-package dap-mode
   :hook (lsp-mode . dap-mode)
         (lsp-mode . dap-ui-mode))
+
+(use-package go-mode
+  :hook (before-save . gofmt-before-save))
+
+(use-package rust-mode
+  :init
+  (setq rust-format-on-save t))
+
+(use-package cargo-mode
+  :hook
+  (rust-mode . cargo-minor-mode))
+
+(use-package zig-mode)
+
+(use-package graphql-mode)
+
+(use-package json-mode
+  :after graphql-mode)
 
 (use-package sbt-mode
   :init (setq sbt:prefer-nested-projects t)
@@ -209,30 +255,34 @@
   (require 'scala-mode-prettify-symbols)
   (setq prettify-symbols-alist scala-prettify-symbols-alist)
   :hook (scala-mode . company-mode)
-  (scala-mode . smartparens-mode)
-  (scala-mode . subword-mode)
+        (scala-mode . smartparens-mode)
+        (scala-mode . subword-mode)
   :diminish smartparens-mode
   :bind
   ("C-c C-b" . sbt-hydra)
   :interpreter
   ("scala" . scala-mode))
 
+(use-package bazel
+  :commands bazel-build bazel-run bazel-test bazel-coverage
+  :mode ("\\.star\\'" . bazel-starlark-mode))
+
+
 ;; project management
-(use-package projectile
-  :init
-  (setq projectile-enable-caching t)
-  :config
-  (setq projectile-completion-system 'ido)
-  (projectile-mode +1)
-
-  :bind-keymap (("s-p" . projectile-command-map)
-                ("C-c p" . projectile-command-map)))
-
-(use-package counsel-projectile
-  :after projectile
-  :config
-  (counsel-projectile-mode))
-
+(defun enable-projectile ()
+    "Enable projectile for project management"
+  (use-package projectile
+    :init
+    (setq projectile-enable-caching t)
+    :config
+    (setq projectile-completion-system 'ido)
+    (projectile-mode +1)
+    :bind-keymap (("s-p" . projectile-command-map)
+                  ("C-c p" . projectile-command-map))))
+(if native-project
+    (enable-project)
+  (enable-projectile))
+  
 (use-package edit-indirect)
 
 (use-package smithy-mode)
@@ -245,6 +295,10 @@
 (use-package markdown-mode)
 
 (use-package yaml-mode)
+
+(with-eval-after-load 'sql
+  ;; sql-mode pretty much requires your psql to be uncustomised from stock settings
+  (add-to-list 'sql-postgres-options "--no-psqlrc"))
 
 (use-package org
   :ensure t
@@ -279,10 +333,21 @@
 
 (use-package org-kanban)
 
+(use-package ob-go)
+(use-package ob-rust)
+(require 'ob-scala)
+(use-package ob-graphql)
+
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((go . t)
+   (graphql . t)
+   (shell . t)
+   (emacs-lisp . t)
+   (scala . t)))
+
 (use-package jinx)
 
 (use-package sly)
-
-(use-package cider)
 
 ;;; configuration.el ends here

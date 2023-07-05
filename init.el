@@ -41,17 +41,6 @@
   (package-refresh-contents)
   (package-install 'use-package))
 
-;; magit is so important we load it here rather than in
-;; configuration.el
-(use-package magit
-  :ensure t
-  :commands magit-status magit-blame
-  :init
-  (setq magit-auto-revert-mode nil
-        magit-last-seen-setup-instructions "1.4.0")
-  :bind (("s-g" . magit-status)
-         ("s-b" . magit-blame)))
-
 ;; load our real configuration
 (load ( expand-file-name "~/.emacs.d/configuration.el"))
 
