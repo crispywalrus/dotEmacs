@@ -40,3 +40,5 @@ org-roam.db
 forge-database*
 projects
 games
+*.org
+tree-sitter
