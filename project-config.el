@@ -1,4 +1,4 @@
-;;; lsp-config.el --- emacs configuration -*- lexical-binding: t -*-
+;;; project-config.el --- use and configure projectile project management -*- lexical-binding: t -*-
 
 ;; Copyright ©  2023 Chris Vale
 ;;
@@ -21,29 +21,11 @@
 
 ;;; Commentary:
 
-;; Configure lsp and all the enhancements that I desire and configure
-;; them for default setup
+;; load various Emacs extensions that make my life easier and more productive.
 
 ;;; Code:
 
-(use-package lsp-mode
-  :config (setq lsp-enable-snippet nil)
-  (setq gc-cons-threshold 100000000)
-  (setq read-process-output-max (* 1024 1024))
-  :hook (lsp-mode . lsp-lens-mode))
+(use-package project)
 
-(use-package lsp-ui)
-
-(use-package consult-lsp)
-
-;; for some reason this still needs to be added by hand
-(use-package lsp-metals)
-
-;; Posframe is a pop-up tool that must be manually installed for dap-mode
-(use-package posframe)
-
-(use-package dap-mode
-  :hook (lsp-mode . dap-mode)
-        (lsp-mode . dap-ui-mode))
-
-;;; lsp-config.el ends here
+(provide 'project-config)
+;;; project-config.el ends here

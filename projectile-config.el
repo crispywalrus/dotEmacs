@@ -1,4 +1,4 @@
-;;; configuration.el --- emacs configuration -*- lexical-binding: t -*-
+;;; projectile-config.el --- use and configure projectile project management -*- lexical-binding: t -*-
 
 ;; Copyright ©  2023 Chris Vale
 ;;
@@ -21,10 +21,22 @@
 
 ;;; Commentary:
 
-;; A standalone configuration file for programming in OCaml. By
-;; default OCaml is loaded via a file and line of code injected by
-;; Opam. This kind of breaks that.
+;; load various Emacs extensions that make my life easier and more productive.
 
 ;;; Code:
 
-;;; configuration.el ends here
+(use-package projectile
+  :init
+  (setq projectile-enable-caching t)
+  :config
+  (setq projectile-completion-system 'default)
+  (projectile-mode +1)
+  :bind-keymap (("s-p" . projectile-command-map)
+                ("C-c p" . projectile-command-map)))
+
+(use-package go-projectile
+  :ensure t
+  :after (projectile))
+
+(provide 'projectile-config)
+;;; projectile-config.el ends here

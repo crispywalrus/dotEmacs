@@ -1,6 +1,6 @@
 ;;; configuration.el --- emacs configuration -*- lexical-binding: t -*-
 
-;; Copyright ©  2022 Chris Vale
+;; Copyright ©  1997-2023 Chris Vale
 ;;
 ;; Author: Chris Vale <crispywalrus@gmail.com>
 
@@ -25,21 +25,21 @@
 
 ;;; Code:
 
-;; configure our GUI appearance. no scrollbar or toolbars and set the
-;; font to Hack 12.
-
 (defgroup configuration nil
-  "Customization switches for configuration.el.")
+  "Customization switches for configuration.el."
+  :group 'emacs)
 
-(defcustom native-project nil
-  "If non-nil use native project.el for project tracking"
-  :type 'string
+(defcustom project-management (expand-file-name "~/.emacs.d/projectile-config.el")
+  "Use the file specified (if non-nil) for project management."
+  :type 'file
   :group 'configuration)
 
+;; configure our GUI appearance. no scrollbar or toolbars and set the
+;; font to Hack 12.
 (when (display-graphic-p)
   (setq initial-frame-alist nil
         default-frame-alist nil)
-  (set-frame-font "Hack-12" nil t)
+;;  (set-frame-font "Hack-12" nil t)
   (scroll-bar-mode -1)
   (tool-bar-mode -1)
   (windmove-default-keybindings))
@@ -77,8 +77,7 @@
   :ensure t
   :commands magit-status magit-blame
   :init
-  (setq magit-auto-revert-mode nil
-        magit-last-seen-setup-instructions "1.4.0")
+  (setq magit-auto-revert-mode nil)
   :bind (("s-g" . magit-status)
          ("s-b" . magit-blame)))
 
@@ -86,8 +85,10 @@
 (use-package exec-path-from-shell
   :init (exec-path-from-shell-initialize))
 
-(setenv "JAVA_HOME" "/Users/cvale2/.sdkman/candidates/java/current")
-(setenv "PATH" (concat "/Users/cvale2/.sdkman/candidates/java/current/bin:" (getenv "PATH")))
+;; exec-path-from-shell is great, but I need to share more than just path
+(setenv "JAVA_HOME" (expand-file-name "~/.sdkman/candidates/java/current"))
+(setenv "GOPATH"  (expand-file-name "~/go"))
+(setenv "PATH" (concat (getenv "PATH") ":" (getenv "GOPATH") "/bin"))
 (setenv "GOPROXY" "direct")
 (setenv "GOSUMDB" "off")
 
@@ -113,6 +114,7 @@
 (use-package pfuture)
 (use-package async)
 (use-package memoize)
+(use-package uuidgen)
 
 ;; packages
 ;; my default customization
@@ -143,13 +145,21 @@
 ;; don't ask about narrow-to-regeion
 (put 'narrow-to-region 'disabled nil)
 
-(add-hook 'dired-load-hook (lambda () (require 'dired-x)))
+(with-eval-after-load 'dired
+  (require 'dired-x))
+
+(add-hook 'emacs-lisp-mode-hook 'turn-on-eldoc-mode)
+(add-hook 'ielm-mode-hook 'turn-on-eldoc-mode)
+(add-hook 'lisp-interaction-mode-hook 'turn-on-eldoc-mode)
 
 ;; for some reason the mac version of emacs has decided to use / as
 ;; the default directory. That's not great for usability.
 (setq default-directory "~/")
 
-(use-package nano-theme)
+(use-package use-package-hydra
+  :ensure t)
+
+;; (use-package nano-theme)
 
 (use-package all-the-icons
   :if (display-graphic-p))
@@ -160,7 +170,33 @@
   :config (setq all-the-icons-dired-monochrome nil))
 
 ;; completion
-(use-package hydra)
+(use-package hydra
+  :ensure t
+  :after (use-package-hydra dap-mode)
+  :config
+  (require 'dap-mode)
+  (require 'dap-ui)
+  :init
+  (add-hook 'dap-stopped-hook
+          (lambda (arg) (call-interactively #'hydra-go/body)))
+  :hydra (hydra-go (:color pink :hint nil :foreign-keys run)
+  "
+   _n_: Next       _c_: Continue _g_: goroutines      _i_: break log
+   _s_: Step in    _o_: Step out _k_: break condition _h_: break hit condition
+   _Q_: Disconnect _q_: quit     _l_: locals
+   "
+	     ("n" dap-next)
+	     ("c" dap-continue)
+	     ("s" dap-step-in)
+	     ("o" dap-step-out)
+	     ("g" dap-ui-sessions)
+	     ("l" dap-ui-locals)
+	     ("e" dap-eval-thing-at-point)
+	     ("h" dap-breakpoint-hit-condition)
+	     ("k" dap-breakpoint-condition)
+	     ("i" dap-breakpoint-log-message)
+	     ("q" nil "quit" :color blue)
+	     ("Q" dap-disconnect :color red)))
 
 (use-package vertico
   :init (vertico-mode))
@@ -181,6 +217,8 @@
                  args))))
 
 (use-package marginalia
+  :bind (:map minibuffer-local-map
+              ("M-A" . marginalia-cycle))
   :init
   (marginalia-mode))
 
@@ -205,24 +243,46 @@
         (lsp-mode . lsp-lens-mode)
         (scala-mode . lsp)
         (go-mode . lsp)
-        (rust-mode . lsp))
+        (rust-mode . lsp)
+        (tuareg-mode . lsp))
 
 (use-package lsp-ui)
+
+(use-package flycheck
+  :init
+  (global-flycheck-mode))
+
+(use-package flycheck-posframe
+  :ensure t
+  :after flycheck
+  :hook (flycheck-mode))
 
 (use-package consult-lsp)
 
 ;; for some reason this still needs to be added by hand
-(use-package lsp-metals)
+(use-package lsp-metals
+  :after lsp-mode)
 
 ;; Posframe is a pop-up tool that must be manually installed for dap-mode
-(use-package posframe)
+(use-package posframe
+  :ensure t)
 
 (use-package dap-mode
-  :hook (lsp-mode . dap-mode)
-        (lsp-mode . dap-ui-mode))
+  :config
+  (dap-mode 1)
+  (tooltip-mode 1)
+  (setq dap-print-io t)
+  (require 'dap-hydra)
+  (require 'dap-dlv-go)
+  (use-package dap-ui
+    :ensure nil
+    :config
+    (dap-ui-mode 1)
+    (dap-ui-controls-mode 1)))
 
 (use-package go-mode
-  :hook (before-save . gofmt-before-save))
+  :hook (before-save . gofmt-before-save)
+        (go-mode . subword-mode))
 
 (use-package rust-mode
   :init
@@ -231,6 +291,21 @@
 (use-package cargo-mode
   :hook
   (rust-mode . cargo-minor-mode))
+
+(use-package tuareg)
+(add-to-list 'load-path (expand-file-name "~/.opam/default/share/emacs/site-lisp"))
+(use-package ocamlformat
+  :custom
+  (ocamlformat-enable 'enable-outside-detected-project)
+  (ocamlformat-command
+   (concat
+    (file-name-as-directory
+     (substring (shell-command-to-string "opam config var bin --switch=ocamlformat --safe") 0 -1))
+    "ocamlformat"))
+  :hook (before-save . ocamlformat-before-save))
+
+(require 'utop)
+(require 'ocp-indent)
 
 (use-package zig-mode)
 
@@ -269,19 +344,8 @@
 
 
 ;; project management
-(defun enable-projectile ()
-    "Enable projectile for project management"
-  (use-package projectile
-    :init
-    (setq projectile-enable-caching t)
-    :config
-    (setq projectile-completion-system 'ido)
-    (projectile-mode +1)
-    :bind-keymap (("s-p" . projectile-command-map)
-                  ("C-c p" . projectile-command-map))))
-(if native-project
-    (enable-project)
-  (enable-projectile))
+(load project-management)
+;; moving on from project management
   
 (use-package edit-indirect)
 
