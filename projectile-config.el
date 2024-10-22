@@ -1,4 +1,4 @@
-;;; projectile-config.el --- use and configure projectile project management -*- lexical-binding: t -*-
+;;; project-config.el --- use and configure projectile project management -*- lexical-binding: t -*-
 
 ;; Copyright ©  2023 Chris Vale
 ;;
@@ -26,17 +26,23 @@
 ;;; Code:
 
 (use-package projectile
-  :init
-  (setq projectile-enable-caching t)
   :config
-  (setq projectile-completion-system 'default)
-  (projectile-mode +1)
-  :bind-keymap (("s-p" . projectile-command-map)
-                ("C-c p" . projectile-command-map)))
+  (projectile-mode t)
+  (setq projectile-project-search-path '("~/Documents/GitHub/"))
+  :bind
+  (:map projectile-mode-map
+              ("s-p" . projectile-command-map)))
 
-(use-package go-projectile
-  :ensure t
-  :after (projectile))
+(use-package org-projectile
+  :after projectile
+  :bind
+  (:map projectile-command-map
+        ("n" . org-project-capture-project-todo-completing-read))
+  :config
+  (setq org-project-capture-default-backend (make-instance 'org-project-capture-projectile-backend)
+        org-project-capture-strategy (make-instance 'org-project-capture-per-project-strategy)
+        org-project-capture-per-project-filepath "TODO.org")
+  (org-project-capture-per-project))
 
 (provide 'projectile-config)
 ;;; projectile-config.el ends here

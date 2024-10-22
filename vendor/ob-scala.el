@@ -43,8 +43,8 @@
   "Name of the command to use for executing Scala code.")
 
 (defun org-babel-execute:scala (body params)
-  "Execute a block of Scala code with org-babel.  This function is
-called by `org-babel-execute-src-block'"
+  "Execute scala code BODY with PARAMS in source block via org-babel.
+This function is called by `org-babel-execute-src-block'"
   (message "executing Scala source code block")
   (let* ((processed-params (org-babel-process-params params))
          (session (org-babel-scala-initiate-session (nth 0 processed-params)))

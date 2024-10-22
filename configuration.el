@@ -34,12 +34,10 @@
   :type 'file
   :group 'configuration)
 
-;; configure our GUI appearance. no scrollbar or toolbars and set the
-;; font to Hack 12.
+;; configure appearance, no scrollbar or toolbars
 (when (display-graphic-p)
   (setq initial-frame-alist nil
         default-frame-alist nil)
-;;  (set-frame-font "Hack-12" nil t)
   (scroll-bar-mode -1)
   (tool-bar-mode -1)
   (windmove-default-keybindings))
@@ -67,6 +65,9 @@
             mac-right-option-modifier 'hyper)
     ()))
 
+;; enable emacsclient
+(server-start)
+
 ;; make use-package download all referenced but uninstalled
 ;; packages.
 (require 'use-package-ensure)
@@ -81,20 +82,25 @@
   :bind (("s-g" . magit-status)
          ("s-b" . magit-blame)))
 
-
 (use-package exec-path-from-shell
-  :init (exec-path-from-shell-initialize))
+  :demand t
+  :config (exec-path-from-shell-initialize))
 
-;; exec-path-from-shell is great, but I need to share more than just path
+;; exec-path-from-shell is great and I have a number of env variable
+;; customized but it's not reliable with more than PATH
 (setenv "JAVA_HOME" (expand-file-name "~/.sdkman/candidates/java/current"))
-(setenv "GOPATH"  (expand-file-name "~/go"))
-(setenv "PATH" (concat (getenv "PATH") ":" (getenv "GOPATH") "/bin"))
-(setenv "GOPROXY" "direct")
-(setenv "GOSUMDB" "off")
+(setenv "GOPATH" (expand-file-name "~/go"))
+(setenv "GOPROXY" "https://repo1.uhc.com/artifactory/api/go/golang-virtual/")
+(setenv "GOPRIVATE" "github.com/optum-digital-rewards")
+(setenv "PKG_CONFIG_PATH" "/opt/homebrew/Cellar/glib/2.80.0_2/lib/pkgconfig")
 
 ;; for code we can't just use from a package manager we'll check it
 ;; into the vendor tree and manage it by hand.
 (add-to-list 'load-path (expand-file-name "vendor" user-emacs-directory))
+
+(use-package editorconfig
+  :config
+  (editorconfig-mode 1))
 
 ;; these are various elisp coding and data structure
 ;; libraries. they're not user modes they're elisp
@@ -102,13 +108,9 @@
 ;; but I also use them for local elisp development. Since these are
 ;; just coding tools they tend to not need any configuration.
 (use-package s)
-(use-package string-inflection
-  :bind ("s-i" . string-inflection-all-cycle))
 (use-package dash)
 (use-package m-buffer)
 (use-package f)
-;; (use-package multiple-cursors
-;;   :ensure t)
 (use-package suggest)
 (use-package parsec)
 (use-package pfuture)
@@ -159,8 +161,6 @@
 (use-package use-package-hydra
   :ensure t)
 
-;; (use-package nano-theme)
-
 (use-package all-the-icons
   :if (display-graphic-p))
 
@@ -178,7 +178,7 @@
   (require 'dap-ui)
   :init
   (add-hook 'dap-stopped-hook
-          (lambda (arg) (call-interactively #'hydra-go/body)))
+          (lambda (arg) (ignore arg) (call-interactively #'dap-hydra)))
   :hydra (hydra-go (:color pink :hint nil :foreign-keys run)
   "
    _n_: Next       _c_: Continue _g_: goroutines      _i_: break log
@@ -228,10 +228,29 @@
   :init
   (all-the-icons-completion-mode))
 
-;; general programing IDE
+(use-package smart-mode-line
+  :init
+  (setq sml/no-confirm-load-theme t
+        sml/theme 'dark
+        sml/name-width 40
+        sml/mode-width 'full)
+  :hook (after-load-theme-hook . smart-mode-line-enable)
+  :config (sml/setup))
+
+;; turn down the busy on the modeline
 (use-package diminish)
 
-(use-package smartparens)
+;; general programing IDE
+(use-package ligature
+  :config
+  (global-ligature-mode t))
+
+(use-package string-inflection
+  :bind ("s-i" . string-inflection-all-cycle))
+
+(use-package smartparens
+  :init
+  (smartparens-global-mode))
 
 (require 'smartparens-config)
 
@@ -263,9 +282,8 @@
 (use-package lsp-metals
   :after lsp-mode)
 
-;; Posframe is a pop-up tool that must be manually installed for dap-mode
-(use-package posframe
-  :ensure t)
+;; Posframe is a tool to create popup viewports
+(use-package posframe)
 
 (use-package dap-mode
   :config
@@ -278,9 +296,15 @@
     :ensure nil
     :config
     (dap-ui-mode 1)
-    (dap-ui-controls-mode 1)))
+    (dap-ui-controls-mode 1))
+  :hook
+  (lsp-mode . dap-mode)
+  (lsp-mode . dap-ui-mode))
 
 (use-package go-mode
+  :init
+  (setq lsp-go-analyses
+        '((composites . :json-false)))
   :hook (before-save . gofmt-before-save)
         (go-mode . subword-mode))
 
@@ -308,6 +332,8 @@
 (require 'ocp-indent)
 
 (use-package zig-mode)
+
+(use-package jwt)
 
 (use-package graphql-mode)
 
@@ -342,12 +368,8 @@
   :commands bazel-build bazel-run bazel-test bazel-coverage
   :mode ("\\.star\\'" . bazel-starlark-mode))
 
-
-;; project management
-(load project-management)
-;; moving on from project management
-  
-(use-package edit-indirect)
+(use-package sml-mode
+  :defer t)
 
 (use-package smithy-mode)
 
@@ -364,11 +386,23 @@
   ;; sql-mode pretty much requires your psql to be uncustomised from stock settings
   (add-to-list 'sql-postgres-options "--no-psqlrc"))
 
-(use-package org
-  :ensure t
+(use-package sqlformat
   :config
-  (setq org-directory (expand-file-name "~/.org")
-        org-default-notes-file (concat org-directory "/notes.org"))
+  (setq sqlformat-command 'pgformatter
+        sqlformat-args '("-s4" )))
+
+;; moving on from programming support
+(load project-management)
+
+(use-package edit-indirect)
+
+;; the end all, and be all. the navel of the world.
+(use-package org
+  :demand t
+  :config (setq org-directory (expand-file-name "~/.org")
+                org-default-notes-file (concat org-directory "/notes.org")
+                org-agenda-files (directory-files-recursively (concat org-directory "/projects") "\\.org$"))
+  :hook (jinx-mode)
   :bind (("C-c l" . org-store-link)
          ("C-c c" . org-capture)
          ("C-c a" . org-agenda)
@@ -395,23 +429,96 @@
                              (?3 :foreground "gray20" :background "gray")
                              (?4 :foreground "gray20" :background "gray"))))
 
+(use-package org-modern)
+
 (use-package org-kanban)
 
 (use-package ob-go)
 (use-package ob-rust)
 (require 'ob-scala)
 (use-package ob-graphql)
+(use-package ob-mermaid)
 
 (org-babel-do-load-languages
  'org-babel-load-languages
  '((go . t)
+   (rust . t)
    (graphql . t)
    (shell . t)
    (emacs-lisp . t)
-   (scala . t)))
+   (scala . t)
+   (sql . t)
+   (sqlite . t)))
 
-(use-package jinx)
+(use-package jinx
+  :bind (("M-$" . jinx-correct)
+         ("C-M-$" . jinx-languages)))
 
 (use-package sly)
 
+(quelpa
+ '(quelpa-use-package
+   :fetcher git
+   :url "https://github.com/quelpa/quelpa-use-package.git"))
+
+(require 'quelpa-use-package)
+
+(use-package copilot.el
+;;         :quelpa (copilot.el :fetcher github
+;;                         :repo "copilot-emacs/copilot.el"
+;;                         :branch "main"
+;;                         :files ("dist" "*.el"))
+  :preface
+  (defun rk/copilot-tab ()
+    "Tab command that will complet with copilot if a completion is
+available. Otherwise will try company, yasnippet or normal
+tab-indent."
+    (interactive)
+    (or (copilot-accept-completion)
+        (indent-for-tab-command)))
+  :bind (:map copilot-mode-map
+              ("<tab>" . rk/copilot-tab)))
+;;        :hook ((prog-mode . copilot-mode)));;
+
+(use-package copilot-chat)
+  ;; :quelpa (copilot-chat :fetcher github
+  ;;                       :repo "chep/copilot-chat.el"
+  ;;                       :branch "master"
+  ;;                       :files ("*.el")       ))
+
+(use-package which-key)
+
+(use-package which-key-posframe
+  :init
+  (setq which-key-posframe-poshandler 'posframe-poshandler-frame-top-right-corner))
+
+(use-package casual-calc
+  :ensure t
+  :bind (:map calc-mode-map ("C-o" . casual-calc-tmenu)))
+
+(use-package casual-info
+  :ensure t
+  :bind (:map Info-mode-map ("C-o" . casual-info-tmenu)))
+
+(use-package casual-dired
+  :ensure t
+  :bind (:map dired-mode-map ("C-o" . casual-dired-tmenu)))
+
+(use-package casual-isearch
+  :ensure t
+  :bind (:map isearch-mode-map ("<f2>" . casual-isearch-tmenu)))
+
+(require 'ibuffer)
+(use-package casual-ibuffer
+  :ensure t
+  :bind (:map ibuffer-mode-map
+              ("C-o" . casual-ibuffer-tmenu)
+              ("F" . casual-ibuffer-filter-tmenu)
+              ("s" . casual-ibuffer-sortby-tmenu)))
+
+(require 're-builder)
+(use-package casual-re-builder
+  :ensure t
+  :bind (:map reb-mode-map
+              ("C-o" . casual-re-builder-tmenu)))
 ;;; configuration.el ends here
